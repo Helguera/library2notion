@@ -71,6 +71,6 @@ class Book:
                     if str(e) != 'EOF marker not found':
                         self.status = 'BROKEN!'
 
-            if self.tags[len(self.tags) - 1] == self.title:
-                self.tags = self.tags[:-1]
-            self.tags = ', '.join(self.tags[1:])
+        if self.tags[len(self.tags) - 1] == self.title:
+            self.tags = self.tags[:-1]
+        self.tags = ', '.join(self.tags[1:])

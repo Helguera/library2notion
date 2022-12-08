@@ -45,6 +45,8 @@ def main():
 
     # ---------------------------------------------------------------------------------------
 
+    print('\nlibrary2notion created by Javier Helguera (github.com/helguera) © 2022 MIT License\n')
+
     wb = openpyxl.Workbook() 
     ws1 = wb.active
     ws1.title = "books"
@@ -140,4 +142,4 @@ def main():
     else:
         print('\n\nEverything up to date. Nothing to upload to Notion.')
 
-    print('\nDONE.')
+    print('\nDONE.\n')
