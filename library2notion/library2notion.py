@@ -23,6 +23,7 @@ def main():
     parser.add_argument("-t", "--NotionToken", help="Notion Token", required=False)
     parser.add_argument("-u", "--NotionDbUrl", help="Notion DB URL", required=False)
     parser.add_argument("-f", "--ForceUpload", help="Force upload to Notion", required=False, action='store_true')
+    parser.add_argument("-o", "--OutputFolder", help="Folder where .csv and .xlsx files will be created", required=False)
 
     args = parser.parse_args()
 
@@ -36,6 +37,10 @@ def main():
     if args.NotionDbUrl: notionDbUrl = args.NotionDbUrl
     forceUpload = False
     if args.ForceUpload: forceUpload = True
+    if args.OutputFolder: 
+        outputFolder = args.OutputFolder
+    else:
+        outputFolder = './l2n-output'
 
 
     # ---------------------------------------------------------------------------------------
@@ -89,8 +94,8 @@ def main():
 
     # JSON PROCESSING
     deleted = []
-    if ('logFilePath' in locals() and os.path.exists(os.path.join(logFilePath, 'log.json')) and not forceUpload):
-        with open(os.path.join(logFilePath, 'log.json'), 'r') as openfile:
+    if ('logFilePath' in locals() and os.path.exists(logFilePath) and not forceUpload):
+        with open(logFilePath, 'r') as openfile:
             # Reading from json file
             json_object = json.load(openfile)
             printProgressBar(0, len(json_object)-1, prefix = 'Analazing log file:    ', suffix = 'Complete', length = 100)
@@ -108,25 +113,27 @@ def main():
                 printProgressBar(index, len(json_object)-1, prefix = 'Analazing log file:    ', suffix = 'Complete', length = 100)
 
         deleted_json_object = json.dumps(deleted, indent=2)
-        with open("deleted.json", "w") as outfile:
+        with open(os.path.join(outputFolder, 'deleted.json'), "w") as outfile:
             outfile.write(deleted_json_object)
 
     json_object = json.dumps(bookCollection.createJson(), indent=2)
-    with open(os.path.join(logFilePath, 'log.json'), "w") as outfile:
+    with open(logFilePath, "w") as outfile:
         outfile.write(json_object)
 
     # bookCollection.printAll()
     bookCollection.extractMetadataFromBooks(forceUpload)
     bookCollection.copyAllToExcel(ws1)
-    wb.save(filename='books.xlsx')
-    df = pd.read_excel('books.xlsx', 'books', index_col=None)
-    df.to_csv ('books.csv', index = None, header=True, encoding='utf-8-sig')
+    if not os.path.exists(outputFolder):
+        os.mkdir(outputFolder)
+    wb.save(filename=os.path.join(outputFolder, 'books.xlsx'))
+    df = pd.read_excel(os.path.join(outputFolder, 'books.xlsx'), 'books', index_col=None)
+    df.to_csv (os.path.join(outputFolder, 'books.csv'), index = None, header=True, encoding='utf-8-sig')
     printProgressBar(0, 0, prefix = 'Converting to .csv:    ', suffix = 'Complete', length = 100)
 
     if not bookCollection.isEmpty() or forceUpload:
         if 'notionToken' in locals() and 'notionDbUrl' in locals():
             print('\n')
-            command = 'csv2notion --token ' + notionToken + ' --url ' + notionDbUrl + ' --merge books.csv --merge-only-column "File Name" --merge-only-column "Title" --merge-only-column "Author" --merge-only-column "Publisher" --merge-only-column "Format" --merge-only-column "Tags" --merge-only-column "ISBN" --column-types "text, select, multi_select, select, text, text, text, multi_select, text" --add-missing-columns --verbose'
+            command = 'csv2notion --token ' + notionToken + ' --url ' + notionDbUrl + ' --merge ' + os.path.join(outputFolder, 'books.csv') + ' --merge-only-column "File Name" --merge-only-column "Title" --merge-only-column "Author" --merge-only-column "Publisher" --merge-only-column "Format" --merge-only-column "Tags" --merge-only-column "ISBN" --column-types "text, select, multi_select, select, text, text, text, multi_select, text" --add-missing-columns --verbose'
             os.system(command)
         else:
             print('\n\nCSV file has been created but no Notion data was provided')
