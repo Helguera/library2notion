@@ -6,7 +6,7 @@ authors = ["helguera <javier@javierhelguera.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.7"
 epub-meta = "^0.0.7"
 openpyxl = "^3.0.10"
 pandas = "^1.5.2"
