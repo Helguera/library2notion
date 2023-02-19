@@ -1,6 +1,7 @@
 import openpyxl
 import epub_meta
 from PyPDF2 import PdfReader
+import json
 
 
 class Book:
@@ -21,7 +22,7 @@ class Book:
 
     def copyToExcel(self, rowNum, ws):
         ws.cell(row=rowNum, column=1).value = self.fileName
-        ws.cell(row=rowNum, column=2).value = self.title    
+        ws.cell(row=rowNum, column=2).value = self.title
         ws.cell(row=rowNum, column=3).value = self.priority
         ws.cell(row=rowNum, column=4).value = self.tags
         ws.cell(row=rowNum, column=5).value = self.status
@@ -57,7 +58,7 @@ class Book:
                     pdf_info = reader.metadata
 
                     # TITLE
-                    if pdf_info.title: 
+                    if pdf_info.title:
                         self.title = pdf_info.title
                     else:
                          self.title = filePath.split('/')[len(filePath.split('/')) - 1].split('.')[0]
@@ -70,6 +71,18 @@ class Book:
                 except Exception as e:
                     if str(e) != 'EOF marker not found':
                         self.status = 'BROKEN!'
+
+            elif 'PAPER' in format.upper():
+                f = open(filePath)
+                data = json.load(f)
+                try:
+                    self.title = data['Title']
+                    self.author = data['Author']
+                    self.publisher = data['Publisher']
+                    self.isbn = data['ISBN']
+                except:
+                    pass
+
 
         if self.tags[len(self.tags) - 1] == self.title:
             self.tags = self.tags[:-1]
