@@ -28,26 +28,29 @@ def main():
     args = parser.parse_args()
 
     if args.Path: path = args.Path
-    if args.LogFilePath: logFilePath = args.LogFilePath
-    if args.Extensions: 
+    if args.Extensions:
         supported_extensions = args.Extensions
     else:
-        supported_extensions = ['.epub', '.pdf']
+        supported_extensions = ['.epub', '.pdf', '.paper']
     if args.NotionToken: notionToken = args.NotionToken
     if args.NotionDbUrl: notionDbUrl = args.NotionDbUrl
     forceUpload = False
     if args.ForceUpload: forceUpload = True
-    if args.OutputFolder: 
+    if args.OutputFolder:
         outputFolder = args.OutputFolder
     else:
         outputFolder = './l2n-output'
+    if args.LogFilePath:
+        logFilePath = args.LogFilePath
+    else:
+        logFilePath = outputFolder + '/log.json'
 
 
     # ---------------------------------------------------------------------------------------
 
     print('\nlibrary2notion created by Javier Helguera (github.com/helguera) © 2022 MIT License\n')
 
-    wb = openpyxl.Workbook() 
+    wb = openpyxl.Workbook()
     ws1 = wb.active
     ws1.title = "books"
 
@@ -119,6 +122,8 @@ def main():
             outfile.write(deleted_json_object)
 
     json_object = json.dumps(bookCollection.createJson(), indent=2)
+    if not os.path.exists(outputFolder):
+        os.makedirs(outputFolder)
     with open(logFilePath, "w") as outfile:
         outfile.write(json_object)
 

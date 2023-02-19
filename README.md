@@ -40,7 +40,7 @@ This project uses [poetry](https://python-poetry.org/) for dependency management
 ```shell
 $ git clone https://github.com/helguera/library2notion.git
 $ cd library2notion/
-$ poetry install 
+$ poetry install
 $ poetry run library2notion
 ```
 
@@ -55,7 +55,7 @@ Import/Merge your digital library collection in .PFD or .EPUB format to Notion.
 general options:
   -p, --Path PATH                    Path where to start looking for books. It will also check all subfolders
   -l, --LogFilePath LOGFILEPATH      Location of the log file if exists. If not, a new one will be created in the specified location
-  -e, --Extensions EXTENSIONS        List of extensions to be taken into account. At this moment .PDF and .EPUB are supported.
+  -e, --Extensions EXTENSIONS        List of extensions to be taken into account. At this moment .PDF, .EPUB and .PAPER are supported.
   -t, --NotionToken NOTIONTOKEN      Notion token, stored in token_v2 cookie for notion.so
   -u, --NotionDbUrl NOTIONDBURL      Notion DB URL
   -f, --ForceUpload FORCEUPLOAD      Force upload to Notion (if token and db url are provided) ignoring the log file. If no Notion data is provided it will generate the .csv file.
@@ -84,7 +84,7 @@ The tool will extract the following data to upload to Notion:
 - **Tags**: the categories of the book. They are generated automatically from the path. For example, if the path is `./Tech Books/Programming/Python/mybook.pdf`, the tags will be `Tech Books`, `Programming`, `Python`.
 - **Author**: the author or authors of the book.
 - **Publisher**: the publisher of the book.
-- **Formats**: the available formats of the book. A book available in multiple formats will only appear once in the database. 
+- **Formats**: the available formats of the book. A book available in multiple formats will only appear once in the database.
 - **ISBN**: the ISBN.
 
 ### Columns
@@ -94,7 +94,20 @@ The tool will create a column per metadata extracted. Also, the following ones, 
 - **Priority**: allows to select a priority and filter by that property in Notion.
 - **Status**: the status of the book (reading, not started, on hold...)
 - **Comments**: if we need to add some comments to the book
-  
+
+### Paper Books
+
+With update 0.2.0, the tool supports physical books. You just have to create a `.paper` file in a folder per physical book that you want to add with the following content:
+
+```json
+{
+    "Title": "",
+    "Author": "",
+    "Publisher": "",
+    "ISBN": ""
+}
+```
+
 ### Log File
 
 The log file is a json file that contains info about the books that have already been uploaded to Notion. It will be automatically generated the first time the application is used. In next executions, if one or more files has been added to the path, the log file must be provided so the tool knows that only those new books have to be scanned and uploaded.
