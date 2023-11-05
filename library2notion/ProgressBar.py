@@ -12,6 +12,7 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         fill        - Optional  : bar fill character (Str)
         printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
     """
+    prefix = prefix.strip().ljust(50)
     if iteration == 0 and total == 0:
         bar = fill*100
         print(f'\r{prefix} |{bar}| 100.0% {suffix}', end = printEnd)
