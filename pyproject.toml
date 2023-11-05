@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "library2notion"
-version = "0.2.0"
+version = "1.0.0"
 description = ""
 authors = ["helguera <javier@javierhelguera.com>"]
 readme = "README.md"
@@ -8,11 +8,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.7"
 epub-meta = "^0.0.7"
-openpyxl = "^3.0.10"
-pandas = "^1.5.2"
 pypdf2 = "^2.11.2"
 argparse = "^1.4.0"
-csv2notion = "^0.3.7"
+notion-client = "^2.0.0"
 
 
 [build-system]

@@ -3,9 +3,13 @@
 [![PyPI version](https://img.shields.io/pypi/v/library2notion?label=version)](https://pypi.python.org/pypi/library2notion)
 [![Python Version](https://img.shields.io/pypi/pyversions/library2notion.svg)](https://pypi.org/project/library2notion/)
 
-A way to upload all your digital library in format .PDF or .EPUB to [Notion.so](https://notion.so). This tools will upload to a database in Notion relevant information from a digital library in order to make it easier to find books, add comments, filter by type or category and keep track of read ones.
+A tool to create a library on Notion with all your books (digital or not) in order to make it easier to find them, add comments, priorities, filter by type or category and keep track of read ones.
 
-This tool makes use of **csv2notion**, a tool created by [vzhd1701](https://github.com/vzhd1701/csv2notion).
+Main features:
+- Detects all digital books from a given path and all the subfolders.
+- Adds, updates or deletes entries on Notion DB to match the status of the local folder.
+- Possibility to create a simple .paper file to add non-digital to be tracked as well.
+- Extracts metadata from .pdf and .epub files.
 
 ## Installation
 
@@ -50,32 +54,74 @@ $ poetry run library2notion
 $ library2notion --help
 usage: library2notion [-h] -p PATH [-l LOGFILEPATH] [-e EXTENSIONS [EXTENSIONS ...]] [-t NOTIONTOKEN] [-u NOTIONDBURL] [-f] [-o OUTPUTFOLDER]
 
-Import/Merge your digital library collection in .PFD or .EPUB format to Notion.
+library2notion created by Javier Helguera (github.com/helguera) © 2023 MIT License
 
 general options:
   -p, --Path PATH                    Path where to start looking for books. It will also check all subfolders
-  -l, --LogFilePath LOGFILEPATH      Location of the log file if exists. If not, a new one will be created in the specified location
-  -e, --Extensions EXTENSIONS        List of extensions to be taken into account. At this moment .PDF, .EPUB and .PAPER are supported.
-  -t, --NotionToken NOTIONTOKEN      Notion token, stored in token_v2 cookie for notion.so
-  -u, --NotionDbUrl NOTIONDBURL      Notion DB URL
-  -f, --ForceUpload FORCEUPLOAD      Force upload to Notion (if token and db url are provided) ignoring the log file. If no Notion data is provided it will generate the .csv file.
-  -o, --OutputFolder OUTPUTFOLDER    Folder to store .csv, .xlsx, and deleted.json files. If not provided it will use './'
-  -h, --help                         show this help message and exit
+  -t, --NotionToken NOTIONTOKEN      Notion token
+  -d, --NotionDbId  NOTIONDBURL      Notion database id
+  -f, --Formats     FORMATS          List of formats to be taken into account. At this moment .PDF, .EPUB and .PAPER are supported.
+  -h, --help                         Show this help message and exit
 ```
 
-### Input
+## Input
 
-You must pass a starting path for the application to start searching for books with the `--Path` option. Also, a log file is needed if you have already executed the tool before. It can be passed with the `--LogFilePath` option. This log file will contain the status of previous execution so books that have already been scanned and upload won't be affected. If this log file is not provided, a new one will be created.
+### -p, --Path
 
-Optionally you can specify what book extensions you want the application to analyze with the option `--Extensions`. At this moment .PDF and .EPUB are supported.
+The path where to look for files (and subfolders). It is higly recommended to use relative paths. This is really important since it will also be used to generate the tags of each book. (Take a look at "Metadata" section for further info).
 
-If you want the application to upload the data to Notion, you must provide a URL to an existing Notion database with the `--NotionDbUrl` option; The URL must link to a database view, not a page.
+For example, if your library looks like:
+```plain
+/home/your_user/Documents/books/Programming/Python
+/home/your_user/Documents/books/Programming/C
+/home/your_user/Documents/books/History/Spanish History
+```
+They ideal way to proceed is, first, move to `books` folder, since it is the common one for all books.
+```plain
+cd /home/your_user/Documents/books
+```
+And from here, execute l2n with a relative path:
+```plain
+library2notion -p "./"
+```
+They way a book is uniquely identified is by using its path. This is important because the book `./books/Programming/Python/PythonCookbook` will be treated as a different one from `./Programming/Python/PythonCookbook`.
 
-The tool also requires you to provide a `token_v2` cookie for the Notion website through `--NotionToken` option.
+### -t, --NotionToken
 
-**Important notice**. `token_v2` cookie provides complete access to your Notion account. Handle it with caution.
+It is the secret token from Notion when an itegration is created. Visit [the official docs](https://developers.notion.com/docs/create-a-notion-integration) for further info. Don't forget to [give your integration page permissions](https://developers.notion.com/docs/create-a-notion-integration#give-your-integration-page-permissions).
 
-### Metadata
+### -d, --NotionDbId
+
+The id of the Notion database where all info will be uploaded. This database has to exist in advance and the columns it needs to have are fixed and **can't be changed**. These are:
+
+| Column Name | Type         |
+|-------------|--------------|
+| File Name   | Title        |
+| Title       | Text         |
+| Priority    | Select       |
+| Status      | Select       |
+| Format      | Multi-select |
+| Tags        | Multi-select |
+| Comments    | Text         |
+| Author      | Text         |
+| Publisher   | Text         |
+| ISBN        | Text         |
+
+To get the database ID value, open the database as a full page in Notion. Use the Share menu to Copy link. Now paste the link in your text editor so you can take a closer look. The URL uses the following format:
+
+```plain
+https://www.notion.so/{workspace_name}/{database_id}?v={view_id}
+```
+
+### -f, --Formats
+
+These are the formats that will be taken into account. At this moment, **.epub, .pdf and .paper** are supported and used by default.
+```plain
+library2notion -f EPUB PAPER  -> only look for .epub and .paper files
+library2notion -f PDF         -> only look for .pdf files
+```
+
+## Metadata
 
 The tool will extract the following data to upload to Notion:
 
@@ -87,17 +133,9 @@ The tool will extract the following data to upload to Notion:
 - **Formats**: the available formats of the book. A book available in multiple formats will only appear once in the database.
 - **ISBN**: the ISBN.
 
-### Columns
+## Non-digital books (.paper)
 
-The tool will create a column per metadata extracted. Also, the following ones, which will be empty because they are only intended to be used in Notion, will be created:
-
-- **Priority**: allows to select a priority and filter by that property in Notion.
-- **Status**: the status of the book (reading, not started, on hold...)
-- **Comments**: if we need to add some comments to the book
-
-### Paper Books
-
-With update 0.2.0, the tool supports physical books. You just have to create a `.paper` file in a folder per physical book that you want to add with the following content:
+With update 0.2.0, the tool supports non-digital books. You just have to create a `.paper` file in a folder per non-digital book that you want to add with the following content:
 
 ```json
 {
@@ -108,17 +146,17 @@ With update 0.2.0, the tool supports physical books. You just have to create a `
 }
 ```
 
-### Log File
+## Log Files
 
-The log file is a json file that contains info about the books that have already been uploaded to Notion. It will be automatically generated the first time the application is used. In next executions, if one or more files has been added to the path, the log file must be provided so the tool knows that only those new books have to be scanned and uploaded.
+A log file will be created after each execution in folder `./library2notion-logs`. It will include info about created, updated and deleted books.
 
-### Deleted Books
+## Examples
 
-If a book is deleted from the path, the tool will detect it the next time it is executed (only, of course, if a log file is provided). This will generate a `deleted.json` file in the ouput folder with the deleted books. But, **really important**, the book will not be deleted from Notion. That has to be done manually.
+### Firt example
 
-## csv2notion
+### Second example
 
-This tool analizes books and creates a .csv file with the results. The task of uploading the data to Notion is performed by the tool [csv2notion](https://github.com/vzhd1701/csv2notion).
+### Third example
 
 ## Getting help
 

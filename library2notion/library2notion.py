@@ -1,14 +1,16 @@
 
-import openpyxl
 import os
-import pandas as pd
-import json
-import collections
 import argparse
+import logging
+import datetime
 
-from .Book import Book
-from .ProgressBar import printProgressBar
-from .BookCollection import BookCollection
+from library2notion.Models.BookEpub import BookEpub
+from library2notion.Models.BookPdf import BookPdf
+from library2notion.Models.BookPaper import BookPaper
+from library2notion.ProgressBar import printProgressBar
+from library2notion.Models.BookCollection import BookCollection
+from library2notion.NotionIntegration import NotionIntegration
+from library2notion.Models.NotionBookCollection import NotionBooksCollection
 
 
 # LINE ARGUMENTS ------------------------------------------------------------------------
@@ -17,134 +19,169 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-p", "--Path", help="Origin path", required=True)
-    parser.add_argument("-l", "--LogFilePath", help="Log File path", required=False)
-    parser.add_argument("-e", "--Extensions", nargs='+', help="Supported Extensions", required=False)
-
-    parser.add_argument("-t", "--NotionToken", help="Notion Token", required=False)
-    parser.add_argument("-u", "--NotionDbUrl", help="Notion DB URL", required=False)
-    parser.add_argument("-f", "--ForceUpload", help="Force upload to Notion", required=False, action='store_true')
-    parser.add_argument("-o", "--OutputFolder", help="Folder where .csv and .xlsx files will be created", required=False)
+    parser.add_argument("-t", "--NotionToken", help="Notion Token", required=True)
+    parser.add_argument("-d", "--NotionDbId", help="Notion DB ID", required=True)
+    parser.add_argument("-f", "--Formats", nargs='+', help="Supported Formats", required=False)
 
     args = parser.parse_args()
 
     if args.Path: path = args.Path
-    if args.Extensions:
-        supported_extensions = args.Extensions
+    base_supported_formats = ['EPUB', 'PDF', 'PAPER']
+    if args.Formats:
+        supported_formats = list(set([x.upper() for x in args.Formats]).intersection(set(base_supported_formats)))
     else:
-        supported_extensions = ['.epub', '.pdf', '.paper']
+        supported_formats = base_supported_formats
     if args.NotionToken: notionToken = args.NotionToken
-    if args.NotionDbUrl: notionDbUrl = args.NotionDbUrl
-    forceUpload = False
-    if args.ForceUpload: forceUpload = True
-    if args.OutputFolder:
-        outputFolder = args.OutputFolder
-    else:
-        outputFolder = './l2n-output'
-    if args.LogFilePath:
-        logFilePath = args.LogFilePath
-    else:
-        logFilePath = outputFolder + '/log.json'
-
+    if args.NotionDbId: notionDbId = args.NotionDbId
 
     # ---------------------------------------------------------------------------------------
 
-    print('\nlibrary2notion created by Javier Helguera (github.com/helguera) © 2022 MIT License\n')
-
-    wb = openpyxl.Workbook()
-    ws1 = wb.active
-    ws1.title = "books"
-
-    ws1.cell(row=1, column=1).value = 'File Name'
-    ws1.cell(row=1, column=2).value = 'Title'
-    ws1.cell(row=1, column=3).value = 'Priority'
-    ws1.cell(row=1, column=4).value = 'Tags'
-    ws1.cell(row=1, column=5).value = 'Status'
-    ws1.cell(row=1, column=6).value = 'Author'
-    ws1.cell(row=1, column=7).value = 'Publisher'
-    ws1.cell(row=1, column=8).value = 'Comments'
-    ws1.cell(row=1, column=9).value = 'Format'
-    ws1.cell(row=1, column=10).value = 'ISBN'
-
+    print('\nlibrary2notion created by Javier Helguera (github.com/helguera) © 2023 MIT License\n')
 
     #####################################################################################################################
 
-    files_path = [os.path.abspath(os.path.join(path, x)) for x in os.listdir(path)]
+    def get_logger(logs_path = None, print_msgs = False):
+        my_logger = logging.getLogger("library2notion")
+        my_logger.setLevel(logging.INFO)
+        my_logger.propagate = print_msgs
+        if logs_path is None:
+            logs_path = os.path.expanduser("./library2notion-logs")  
+        os.makedirs(logs_path, exist_ok=True)
+        log_file = "{}-{}.log".format("library2notion", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        handler = logging.FileHandler(os.path.join(logs_path, log_file))
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        handler.setFormatter(formatter)
+        my_logger.addHandler(handler)
+        return my_logger, logs_path, log_file
+
     files = []
     temp_files = []
 
     for r, d, f in os.walk(path):
         for file in f:
-            if filter(lambda element: file in element, supported_extensions):
+            if filter(lambda element: file in element, supported_formats):
                 files.append(os.path.join(r, file))
     temp_files = files.copy()
     temp_files = filter(lambda x: '._' not in x, files)
     files = filter(lambda x: '._' not in x, files)
 
-    bookCollection = BookCollection()
+    my_logger, logs_path, logs_file = get_logger()
+    my_logger.info("STARTED")
+    my_logger.info("Args -> {}".format(args))
+    notionIntegration = NotionIntegration(notionToken, notionDbId)
+    localBookCollection = BookCollection(notionIntegration)
+    notionBookCollection = NotionBooksCollection(notionIntegration)
 
     total_files = 0
     for index, my_file in enumerate(temp_files, start=1):
         total_files += 1
 
-    print('\nTOTAL FILES: ' + str(total_files) + '\n')
-    printProgressBar(0, total_files, prefix = 'Detecting files:       ', suffix = 'Complete', length = 100)
+    printProgressBar(0, total_files, prefix = '➖ Detecting local files:', suffix = 'Complete', length = 100)
 
-    for index, my_file in enumerate(files, start=1):
+    for index, my_file in enumerate(files):
+        format = os.path.splitext(my_file)[1].upper()[1:]
+        if format in supported_formats:
+            book = None
+            if format == 'EPUB':
+                book = BookEpub(os.path.splitext(my_file)[0], format)
+            elif format == 'PDF':
+                book = BookPdf(os.path.splitext(my_file)[0], format)
+            elif format == 'PAPER':
+                book = BookPaper(os.path.splitext(my_file)[0], format)
+            if book:
+                localBookCollection.insert(book)
 
-        if os.path.splitext(my_file)[1] in supported_extensions:
-            book = Book(os.path.splitext(my_file)[0], [os.path.splitext(my_file)[1].replace('.','').upper()], os.path.splitext(my_file)[1])
-            bookCollection.insert(book)
+        printProgressBar(index + 1, total_files, prefix = '{} Detecting local files ({}/{}):'.format("✅" if index+1 == total_files else "➖", index + 1, total_files), suffix = 'Complete', length = 100)
 
-        printProgressBar(index, total_files, prefix = 'Detecting files:       ', suffix = 'Complete', length = 100)
+    localBookCollection.extractMetadataFromBooks()
+    notionBookCollection.fetchAllBooks()
 
-    # JSON PROCESSING
-    deleted = []
-    if ('logFilePath' in locals() and os.path.exists(logFilePath) and not forceUpload):
-        with open(logFilePath, 'r') as openfile:
-            # Reading from json file
-            json_object = json.load(openfile)
-            printProgressBar(0, len(json_object)-1, prefix = 'Analazing log file:    ', suffix = 'Complete', length = 100)
-            for index, value in enumerate(json_object):
-                bookInCollection = bookCollection.findBook(value['filename'])
-                if bookInCollection is not None:
-                    if collections.Counter(bookInCollection.formats) == collections.Counter(value['formats']):
-                        bookInCollection.action = "do nothing"
-                    else:
-                        json_object[index]['formats']= bookInCollection.formats
-                        bookInCollection.action = "update"
-                else:
-                    json_object[index]['action']= 'DELETED'
-                    deleted.append(json_object[index])
-                printProgressBar(index, len(json_object)-1, prefix = 'Analazing log file:    ', suffix = 'Complete', length = 100)
+    # Process changes
+    #     
+    def get_property_value(list_book_formats, property):
+        for item in list_book_formats:
+            if hasattr(item, property) and getattr(item, property) not in [None, '']:
+                return getattr(item, property)
+        return ''
+    
+    def generateListBookFormats(matches):
+        list_book_formats = []
+        for match in matches:   # The order is important to get the properties
+            if match.format.upper() in supported_formats and match.format.upper() == 'PAPER':
+                list_book_formats.append(match)
+            elif match.format.upper() in supported_formats and match.format.upper() == 'EPUB':
+                list_book_formats.append(match)
+            elif match.format.upper() in supported_formats and match.format.upper() == 'PDF':
+                list_book_formats.append(match)
+        return list_book_formats
+    
+    def generateBooksJson(list_book_formats, matches):
+        generated_json = {
+            "notion_page_id": get_property_value(list_book_formats, "notion_page_id"),
+            "File Name": {"title": [{"text": {"content":  get_property_value(list_book_formats, "fileName")}}]},
+            "Title": { "type": "rich_text", "rich_text": [{"type": "text", "text": {"content": get_property_value(list_book_formats, "title")},},],},
+            "Format": {"type": "multi_select", "multi_select": [{"name": y} for y in [x.format for x in matches]]},
+            "Publisher": { "type": "rich_text", "rich_text": [{"type": "text", "text": {"content": get_property_value(list_book_formats, "publisher")},},],},
+            "Tags": {"type": "multi_select", "multi_select": [{"name": y} for y in matches[0].tags]},
+            "Author": { "type": "rich_text", "rich_text": [{"type": "text", "text": {"content": get_property_value(list_book_formats, "author")},},],},
+            "ISBN": { "type": "rich_text", "rich_text": [{"type": "text", "text": {"content": get_property_value(list_book_formats, "isbn")},},],},
+        }
+        return generated_json
+    
+    printProgressBar(0, localBookCollection.getLength(), prefix = '➖ Creating/updating books in Notion:', suffix = 'Complete', length = 100)
 
-        deleted_json_object = json.dumps(deleted, indent=2)
-        with open(os.path.join(outputFolder, 'deleted.json'), "w") as outfile:
-            outfile.write(deleted_json_object)
+    updated_count, created_count, deleted_count = 0, 0, 0
+    for index, book in enumerate(localBookCollection.getAll()):
+        if not book.ignore:
+            local_matches = localBookCollection.findBook(book.fileName)
+            local_list_book_formats = generateListBookFormats(local_matches)
+            local_json = generateBooksJson(local_list_book_formats, local_matches)
 
-    json_object = json.dumps(bookCollection.createJson(), indent=2)
-    if not os.path.exists(outputFolder):
-        os.makedirs(outputFolder)
-    with open(logFilePath, "w") as outfile:
-        outfile.write(json_object)
+            if notionBookCollection.existsByFileName(book.fileName):
+                notion_matches = notionBookCollection.findBook(book.fileName)
+                notion_list_book_formats = generateListBookFormats(notion_matches)
+                notion_json = generateBooksJson(notion_list_book_formats, notion_matches)
+                
+                notion_page_id = notion_json.pop("notion_page_id")
+                if not local_json == notion_json:
+                    local_file_name = local_json.pop("File Name")
+                    del local_json["notion_page_id"]
+                    notionIntegration.update_page(local_json, page_id = notion_page_id)
+                    my_logger.info("Updated page with id {} and File Name {}".format(notion_page_id, local_file_name))
+                    updated_count += 1
+            else:
+                del local_json["notion_page_id"]
+                local_json["Status"] = {"select": {"name": "Not Started"}}
+                notionIntegration.createPage(local_json)
+                my_logger.info("Created entry for File Name {}".format(local_json.get("File Name")))
+                created_count += 1
+            for match in local_matches:
+                match.ignore = True
 
-    # bookCollection.printAll()
-    bookCollection.extractMetadataFromBooks(forceUpload)
-    bookCollection.copyAllToExcel(ws1)
-    if not os.path.exists(outputFolder):
-        os.mkdir(outputFolder)
-    wb.save(filename=os.path.join(outputFolder, 'books.xlsx'))
-    df = pd.read_excel(os.path.join(outputFolder, 'books.xlsx'), 'books', index_col=None)
-    df.to_csv (os.path.join(outputFolder, 'books.csv'), index = None, header=True, encoding='utf-8-sig')
-    printProgressBar(0, 0, prefix = 'Converting to .csv:    ', suffix = 'Complete', length = 100)
+        printProgressBar(index+1, localBookCollection.getLength(), prefix = '{} Creating/updating books in Notion ({}/{}):'.format("✅" if index+1 == localBookCollection.getLength() else "➖", index+1, localBookCollection.getLength()), suffix = 'Complete', length = 100)
+        
+    # Delete from Notion the ones not found in local
+    printProgressBar(0, notionBookCollection.getLength(), prefix = '➖ Deleting books from Notion:', suffix = 'Complete', length = 100)
+    for index, book in enumerate(notionBookCollection.getAll()):
+        if not book.ignore:
+            if not localBookCollection.existsByFileName(book.fileName):
+                notionIntegration.delete_page(book.notion_page_id)
+                my_logger.info("Deleted page with id {} and File Name {}".format(book.notion_page_id, book.fileName))
+                deleted_count += 1
+                for match in notionBookCollection.findBook(book.fileName):
+                    match.ignore = True
+        printProgressBar(index+1, notionBookCollection.getLength(), prefix = '{} Deleting books from Notion ({}/{}):'.format("✅" if index+1 == notionBookCollection.getLength() else "➖", index+1, notionBookCollection.getLength()), suffix = 'Complete', length = 100)
 
-    if not bookCollection.isEmpty() or forceUpload:
-        if 'notionToken' in locals() and 'notionDbUrl' in locals():
-            print('\n')
-            command = 'csv2notion --token ' + notionToken + ' --url ' + notionDbUrl + ' --merge ' + os.path.join(outputFolder, 'books.csv') + ' --merge-only-column "File Name" --merge-only-column "Title" --merge-only-column "Author" --merge-only-column "Publisher" --merge-only-column "Format" --merge-only-column "Tags" --merge-only-column "ISBN" --column-types "text, select, multi_select, select, text, text, text, multi_select, text" --add-missing-columns --verbose'
-            os.system(command)
-        else:
-            print('\n\nCSV file has been created but no Notion data was provided')
-    else:
-        print('\n\nEverything up to date. Nothing to upload to Notion.')
+    print("\n- Created books: {}".format(created_count))
+    my_logger.info("Created books: {}".format(created_count))
+    print("- Updated books: {}".format(updated_count))
+    my_logger.info("Updated books: {}".format(updated_count))
+    print("- Deleted books: {}\n".format(deleted_count))
+    my_logger.info("Deleted books: {}\n".format(deleted_count))
 
-    print('\nDONE.\n')
+    print("- Log file {} created in {}\n".format(logs_file, logs_path))
+    my_logger.info("FINISHED")
+        
+
+
+
