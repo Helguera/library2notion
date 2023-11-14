@@ -23,6 +23,11 @@ def main():
     parser.add_argument("-d", "--NotionDbId", help="Notion DB ID", required=True)
     parser.add_argument("-f", "--Formats", nargs='+', help="Supported Formats", required=False)
 
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--only_new", required=False, action="store_true", default=False, help="Only look for new books")
+    group.add_argument("--only_updated", required=False, action="store_true", default=False, help="Only look for updated books")
+    group.add_argument("--only_deleted", required=False, action="store_true", default=False, help="Only look for deleted book")
+
     args = parser.parse_args()
 
     if args.Path: path = args.Path
@@ -33,6 +38,10 @@ def main():
         supported_formats = base_supported_formats
     if args.NotionToken: notionToken = args.NotionToken
     if args.NotionDbId: notionDbId = args.NotionDbId
+
+    exec_all = False
+    if not args.only_new and not args.only_updated and not args.only_deleted:
+        exec_all = True
 
     # ---------------------------------------------------------------------------------------
 
@@ -128,7 +137,7 @@ def main():
         }
         return generated_json
     
-    printProgressBar(0, localBookCollection.getLength(), prefix = '➖ Creating/updating books in Notion:', suffix = 'Complete', length = 100)
+    printProgressBar(0, localBookCollection.getLength(), prefix = '➖ {} books in Notion:'.format('Creating/updating' if exec_all else ('Creating' if args.only_new else 'Updating'),), suffix = 'Complete', length = 100)
 
     updated_count, created_count, deleted_count = 0, 0, 0
     for index, book in enumerate(localBookCollection.getAll()):
@@ -138,39 +147,49 @@ def main():
             local_json = generateBooksJson(local_list_book_formats, local_matches)
 
             if notionBookCollection.existsByFileName(book.fileName):
-                notion_matches = notionBookCollection.findBook(book.fileName)
-                notion_list_book_formats = generateListBookFormats(notion_matches)
-                notion_json = generateBooksJson(notion_list_book_formats, notion_matches)
-                
-                notion_page_id = notion_json.pop("notion_page_id")
-                if not local_json == notion_json:
-                    local_file_name = local_json.pop("File Name")
-                    del local_json["notion_page_id"]
-                    notionIntegration.update_page(local_json, page_id = notion_page_id)
-                    my_logger.info("Updated page with id {} and File Name {}".format(notion_page_id, local_file_name))
-                    updated_count += 1
+                if (args.only_updated or exec_all):
+                    notion_matches = notionBookCollection.findBook(book.fileName)
+                    notion_list_book_formats = generateListBookFormats(notion_matches)
+                    notion_json = generateBooksJson(notion_list_book_formats, notion_matches)
+                    
+                    notion_page_id = notion_json.pop("notion_page_id")
+                    if not local_json == notion_json:
+                        local_file_name = local_json.pop("File Name")
+                        del local_json["notion_page_id"]
+                        notionIntegration.update_page(local_json, page_id = notion_page_id)
+                        my_logger.info("Updated page with id {} and File Name {}".format(notion_page_id, local_file_name))
+                        updated_count += 1
             else:
-                del local_json["notion_page_id"]
-                local_json["Status"] = {"select": {"name": "Not Started"}}
-                notionIntegration.createPage(local_json)
-                my_logger.info("Created entry for File Name {}".format(local_json.get("File Name")))
-                created_count += 1
+                if (args.only_new or exec_all):
+                    del local_json["notion_page_id"]
+                    local_json["Status"] = {"select": {"name": "Not Started"}}
+                    notionIntegration.createPage(local_json)
+                    my_logger.info("Created entry for File Name {}".format(local_json.get("File Name")))
+                    created_count += 1
             for match in local_matches:
                 match.ignore = True
 
-        printProgressBar(index+1, localBookCollection.getLength(), prefix = '{} Creating/updating books in Notion ({}/{}):'.format("✅" if index+1 == localBookCollection.getLength() else "➖", index+1, localBookCollection.getLength()), suffix = 'Complete', length = 100)
+        action_msg = 'Creating/updating' if exec_all else ('Creating' if args.only_new else 'Updating')
+        printProgressBar(index+1, localBookCollection.getLength(), prefix = '{} {} books in Notion ({}/{}):'.format(
+            "✅" if index+1 == localBookCollection.getLength() else "➖",
+            'Creating/updating' if exec_all else ('Creating' if args.only_new else 'Updating'),
+            index+1,
+            localBookCollection.getLength()),
+            suffix = 'Complete',
+            length = 100)
         
     # Delete from Notion the ones not found in local
-    printProgressBar(0, notionBookCollection.getLength(), prefix = '➖ Deleting books from Notion:', suffix = 'Complete', length = 100)
-    for index, book in enumerate(notionBookCollection.getAll()):
-        if not book.ignore:
-            if not localBookCollection.existsByFileName(book.fileName):
-                notionIntegration.delete_page(book.notion_page_id)
-                my_logger.info("Deleted page with id {} and File Name {}".format(book.notion_page_id, book.fileName))
-                deleted_count += 1
-                for match in notionBookCollection.findBook(book.fileName):
-                    match.ignore = True
-        printProgressBar(index+1, notionBookCollection.getLength(), prefix = '{} Deleting books from Notion ({}/{}):'.format("✅" if index+1 == notionBookCollection.getLength() else "➖", index+1, notionBookCollection.getLength()), suffix = 'Complete', length = 100)
+    if (args.only_deleted or exec_all):
+        printProgressBar(0, notionBookCollection.getLength(), prefix = '➖ Deleting books from Notion:', suffix = 'Complete', length = 100)
+        for index, book in enumerate(notionBookCollection.getAll()):
+            if not book.ignore:
+                if not localBookCollection.existsByFileName(book.fileName):
+                    notionIntegration.delete_page(book.notion_page_id)
+                    my_logger.info("Deleted page with id {} and File Name {}".format(book.notion_page_id, book.fileName))
+                    deleted_count += 1
+                    for match in notionBookCollection.findBook(book.fileName):
+                        match.ignore = True
+            printProgressBar(index+1, notionBookCollection.getLength(), prefix = '{} Deleting books from Notion ({}/{}):'.format("✅" if index+1 == notionBookCollection.getLength() else "➖", index+1, notionBookCollection.getLength()), suffix = 'Complete', length = 100)
 
     print("\n- Created books: {}".format(created_count))
     my_logger.info("Created books: {}".format(created_count))

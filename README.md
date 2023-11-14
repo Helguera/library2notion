@@ -61,6 +61,9 @@ general options:
   -t, --NotionToken NOTIONTOKEN      Notion token
   -d, --NotionDbId  NOTIONDBURL      Notion database id
   -f, --Formats     FORMATS          List of formats to be taken into account. At this moment .PDF, .EPUB and .PAPER are supported.
+  -only_new,                         Only check new books
+  -only_updated                      Only check changes in existing books (does not include removals)
+  -only_deleted                      Only check deleted books
   -h, --help                         Show this help message and exit
 ```
 
@@ -121,6 +124,18 @@ library2notion -f EPUB PAPER  -> only look for .epub and .paper files
 library2notion -f PDF         -> only look for .pdf files
 ```
 
+### -only_new
+
+Checks only new books that have been added to the path since the last execution. Skips updated and deleted ones.
+
+### -only_updated
+
+Checks only books that have been updated since the last execution. Skips new and deleted ones.
+
+### -only_deleted
+
+Checks only books that have been deleted since the last execution. Skips new and updated ones.
+
 ## Metadata
 
 The tool will extract the following data to upload to Notion:
@@ -152,7 +167,7 @@ A log file will be created after each execution in folder `./library2notion-logs
 
 ## Examples
 
-### Firt example
+### First example
 
 ### Second example
 
