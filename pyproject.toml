@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "library2notion"
-version = "1.0.1"
+version = "1.0.2"
 description = ""
 authors = ["helguera <javier@javierhelguera.com>"]
 readme = "README.md"
