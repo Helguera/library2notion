@@ -45,7 +45,7 @@ def main():
 
     # ---------------------------------------------------------------------------------------
 
-    print('\nlibrary2notion created by Javier Helguera (github.com/helguera) © 2023 MIT License\n')
+    print('\nlibrary2notion v1.0.2 created by Javier Helguera (github.com/helguera) © 2023 MIT License\n')
 
     #####################################################################################################################
 
@@ -102,7 +102,6 @@ def main():
 
         printProgressBar(index + 1, total_files, prefix = '{} Detecting local files ({}/{}):'.format("✅" if index+1 == total_files else "➖", index + 1, total_files), suffix = 'Complete', length = 100)
 
-    localBookCollection.extractMetadataFromBooks()
     notionBookCollection.fetchAllBooks()
 
     # Process changes
@@ -144,10 +143,12 @@ def main():
         if not book.ignore:
             local_matches = localBookCollection.findBook(book.fileName)
             local_list_book_formats = generateListBookFormats(local_matches)
-            local_json = generateBooksJson(local_list_book_formats, local_matches)
 
             if notionBookCollection.existsByFileName(book.fileName):
+                # Update
                 if (args.only_updated or exec_all):
+                    book.extractMetadata()
+                    local_json = generateBooksJson(local_list_book_formats, local_matches)
                     notion_matches = notionBookCollection.findBook(book.fileName)
                     notion_list_book_formats = generateListBookFormats(notion_matches)
                     notion_json = generateBooksJson(notion_list_book_formats, notion_matches)
@@ -160,7 +161,10 @@ def main():
                         my_logger.info("Updated page with id {} and File Name {}".format(notion_page_id, local_file_name))
                         updated_count += 1
             else:
+                # Insert
                 if (args.only_new or exec_all):
+                    book.extractMetadata()
+                    local_json = generateBooksJson(local_list_book_formats, local_matches)
                     del local_json["notion_page_id"]
                     local_json["Status"] = {"select": {"name": "Not Started"}}
                     notionIntegration.createPage(local_json)
@@ -169,7 +173,6 @@ def main():
             for match in local_matches:
                 match.ignore = True
 
-        action_msg = 'Creating/updating' if exec_all else ('Creating' if args.only_new else 'Updating')
         printProgressBar(index+1, localBookCollection.getLength(), prefix = '{} {} books in Notion ({}/{}):'.format(
             "✅" if index+1 == localBookCollection.getLength() else "➖",
             'Creating/updating' if exec_all else ('Creating' if args.only_new else 'Updating'),

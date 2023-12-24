@@ -1,3 +1,4 @@
+import logging
 
 class Book:
     def __init__(self, fileName, format, title = '', author = '', publisher = '', isbn = '', notion_page_id = None):
@@ -16,4 +17,5 @@ class Book:
         self.notion_page_id = notion_page_id
 
     def extractMetadata(self):
-        pass
+        my_logger = logging.getLogger("library2notion")
+        my_logger.info("Extracted metadata for book {}".format(self.fileName))

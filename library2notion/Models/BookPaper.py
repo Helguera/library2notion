@@ -19,3 +19,5 @@ class BookPaper(Book):
             self.isbn = data['ISBN']
         except Exception as e:
             pass
+
+        return super().extractMetadata()
