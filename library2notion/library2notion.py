@@ -37,6 +37,7 @@ def main():
             args.NotionToken = data['notion_secret_token']
             args.NotionDbId = data['notion_db_id']
             args.Path = data['path']
+            args.Ignore = data['ignore']
         except:
             print("Error: format of config file is not correct")
             sys.exit(1)
@@ -45,7 +46,8 @@ def main():
         params = {
             'notion_secret_token': args.NotionToken,
             'notion_db_id': args.NotionDbId,
-            'path': args.Path
+            'path': args.Path,
+            'ignore': args.Ignore
         }
 
         with open('config_l2n.json', 'w') as json_file:
@@ -60,6 +62,7 @@ def main():
     parser.add_argument("-d", "--NotionDbId", help="Notion DB ID", required=False)
     parser.add_argument("-f", "--Formats", nargs='+', help="Supported Formats", required=False)
     parser.add_argument("-c", "--Config", help="Config file in JSON format")
+    parser.add_argument("-i", "--Ignore", nargs='+', help="Folders to ignore", required=False, default=[])
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--only_new", required=False, action="store_true", default=False, help="Only look for new books")
@@ -87,6 +90,7 @@ def main():
         supported_formats = base_supported_formats
     if args.NotionToken: notionToken = args.NotionToken
     if args.NotionDbId: notionDbId = args.NotionDbId
+    ignore_dirs = [os.path.normpath(os.path.join(path, ig)) for ig in args.Ignore] if args.Ignore else []
 
     exec_all = False
     if not args.only_new and not args.only_updated and not args.only_deleted:
@@ -115,6 +119,7 @@ def main():
     temp_files = []
 
     for r, d, f in os.walk(path):
+        d[:] = [dir for dir in d if os.path.normpath(os.path.join(r, dir)) not in ignore_dirs]
         for file in f:
             if filter(lambda element: file in element, supported_formats):
                 files.append(os.path.join(r, file))

@@ -1,5 +1,6 @@
 {
     "notion_secret_token": "",
     "notion_db_id": "",
-    "path": ""
+    "path": "",
+    "ignore": []
 }
