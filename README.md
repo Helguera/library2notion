@@ -60,7 +60,9 @@ general options:
   -p, --Path PATH                    Path where to start looking for books. It will also check all subfolders
   -t, --NotionToken NOTIONTOKEN      Notion token
   -d, --NotionDbId  NOTIONDBURL      Notion database id
-  -f, --Formats     FORMATS          List of formats to be taken into account. At this moment .PDF, .EPUB and .PAPER are supported.
+  -f, --Formats     FORMATS          List of formats to be taken into account. At this moment .PDF, .EPUB and .PAPER are supported
+  -c, --Config      CONFIG           Provide a config json which includes the parameters
+  -i, --Ignore      IGNORE           Folders to ignore (in a list)  
   -only_new,                         Only check new books
   -only_updated                      Only check changes in existing books (does not include removals)
   -only_deleted                      Only check deleted books
@@ -123,6 +125,28 @@ These are the formats that will be taken into account. At this moment, **.epub, 
 library2notion -f EPUB PAPER  -> only look for .epub and .paper files
 library2notion -f PDF         -> only look for .pdf files
 ```
+
+### -c, --Config
+
+A config.json file can be provided as input with the settings already in it. The tool will ask if you want it to create this file for you the first time it is executed, so future executions will be easier.
+
+```json
+{
+    "notion_secret_token": "",
+    "notion_db_id": "",
+    "path": "",
+    "ignore": []
+}
+```
+
+### -i, --Ignore
+
+This allows you to exlude some folders or subfolders that you don't want to include. For example:
+
+```plain
+-i History "./Tech Books/Programming" 
+```
+The folder "History" will be completely ignored. Same for "Tech Books/Programming", but not for the rest of the books in  "Tech Books".
 
 ### -only_new
 
