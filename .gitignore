@@ -5,6 +5,7 @@ venv/
 library2notionTest.sh
 local_tests/
 Books/
+config_test.json
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

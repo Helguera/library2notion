@@ -3,6 +3,9 @@ import os
 import argparse
 import logging
 import datetime
+import sys
+import importlib.metadata
+import json
 
 from library2notion.Models.BookEpub import BookEpub
 from library2notion.Models.BookPdf import BookPdf
@@ -16,12 +19,47 @@ from library2notion.Models.NotionBookCollection import NotionBooksCollection
 # LINE ARGUMENTS ------------------------------------------------------------------------
 
 def main():
+
+    def validate_args(args):
+        if (not args.Path or not args.NotionToken or not args.NotionDbId) and not args.Config:
+            print("Error: --Path(-p), --NotionToken(-t), y --NotionDbId(-d) are required when --Config(-c) is not provided")
+            sys.exit(1)
+
+    def validate_config_file(args):
+        try:
+            f = open(args.Config)
+        except:
+            print("Error: config file not found")
+            sys.exit(1)
+
+        try:
+            data = json.load(f)
+            args.NotionToken = data['notion_secret_token']
+            args.NotionDbId = data['notion_db_id']
+            args.Path = data['path']
+        except:
+            print("Error: format of config file is not correct")
+            sys.exit(1)
+
+    def create_config_file(args):
+        params = {
+            'notion_secret_token': args.NotionToken,
+            'notion_db_id': args.NotionDbId,
+            'path': args.Path
+        }
+
+        with open('config_l2n.json', 'w') as json_file:
+            json.dump(params, json_file, indent=4)
+
+        
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-p", "--Path", help="Origin path", required=True)
-    parser.add_argument("-t", "--NotionToken", help="Notion Token", required=True)
-    parser.add_argument("-d", "--NotionDbId", help="Notion DB ID", required=True)
+    parser.add_argument("-v", "--version", action="version", version = importlib.metadata.version('library2notion'))
+    parser.add_argument("-p", "--Path", help="Origin path", required=False)
+    parser.add_argument("-t", "--NotionToken", help="Notion Token", required=False)
+    parser.add_argument("-d", "--NotionDbId", help="Notion DB ID", required=False)
     parser.add_argument("-f", "--Formats", nargs='+', help="Supported Formats", required=False)
+    parser.add_argument("-c", "--Config", help="Config file in JSON format")
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--only_new", required=False, action="store_true", default=False, help="Only look for new books")
@@ -29,6 +67,17 @@ def main():
     group.add_argument("--only_deleted", required=False, action="store_true", default=False, help="Only look for deleted book")
 
     args = parser.parse_args()
+
+    print('\nlibrary2notion v{} created by Javier Helguera (github.com/helguera) © 2023 MIT License\n'.format(importlib.metadata.version('library2notion')))
+
+    validate_args(args)
+    if args.Config:
+        validate_config_file(args)
+    else:
+        create_config_file_answer = input("Do you want to create a config file with provided params for next executions? (Y/n): ")
+        print("\n")
+        if create_config_file_answer == 'Y':
+            create_config_file(args)
 
     if args.Path: path = args.Path
     base_supported_formats = ['EPUB', 'PDF', 'PAPER']
@@ -45,7 +94,6 @@ def main():
 
     # ---------------------------------------------------------------------------------------
 
-    print('\nlibrary2notion v1.0.2 created by Javier Helguera (github.com/helguera) © 2023 MIT License\n')
 
     #####################################################################################################################
 
